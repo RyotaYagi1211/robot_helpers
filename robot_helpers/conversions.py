@@ -1,7 +1,9 @@
 import numpy as np
 
 def map_cloud_to_grid(voxel_size, points, values):
-    grid = np.zeros((40, 40, 40), dtype=np.float32)
+    # grid = np.zeros((40, 40, 40), dtype=np.float32)
+    grid = np.zeros((60, 60, 60), dtype=np.float32)##学習時に変更
+
     indices = np.round(points / voxel_size).astype(int)
     grid[tuple(indices.T)] = values.squeeze()
     return grid

@@ -11,13 +11,13 @@ class GripperController(object):
     def activate_gripper(self):
         # activate
         self.command = outputMsg.Robotiq2FGripper_robot_output()
-        self.command.rACT = 1
+        self.command.rACT = 1#起動
         self.command.rGTO = 1
         self.command.rSP  = 255
-        self.command.rFR  = 150
+        self.command.rFR  = 100#力 150
         self.pub.publish(self.command)
 
-    def gripper_control(self,width):
+    def gripper_control(self,width):#入力が幅でよくなってる
         # 0 < width < 140
         value = (-11/7)*width + 220
         self.command.rPR = int(value)
