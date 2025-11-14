@@ -3,8 +3,8 @@ import open3d as o3d
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  
 def map_cloud_to_grid(voxel_size, points, values):
-    # grid = np.zeros((40, 40, 40), dtype=np.float32)
-    grid = np.zeros((60, 60, 60), dtype=np.float32)##学習時に変更
+    grid = np.zeros((40, 40, 40), dtype=np.float32)
+    # grid = np.zeros((60, 60, 60), dtype=np.float32)##学習時に変更
 
     indices = np.round(points / voxel_size).astype(int)
     grid[tuple(indices.T)] = values.squeeze()
