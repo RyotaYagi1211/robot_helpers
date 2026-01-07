@@ -5,8 +5,10 @@ import sensor_msgs.msg
 from sensor_msgs.msg import PointCloud2, PointField
 from shape_msgs.msg import Mesh, MeshTriangle
 import std_msgs.msg
-
-
+import rospy
+import struct
+from sensor_msgs.msg import PointCloud2, PointField
+import std_msgs.msg
 from robot_helpers.perception import CameraIntrinsic
 from robot_helpers.spatial import Rotation, Transform
 
@@ -162,5 +164,44 @@ def to_cloud_msg(frame, points, values=None):
 
     msg.row_step = msg.point_step * points.shape[0]
     msg.data = data.astype(np.float32).tostring()
+
+    return msg
+def to_cloud_msg_purple(frame, points,values=None):
+    import struct
+    msg = PointCloud2()
+    msg.header.frame_id = frame
+    msg.header.stamp = rospy.Time.now()
+
+    N = points.shape[0]
+
+    msg.height = 1
+    msg.width = N
+    msg.is_bigendian = False
+    msg.is_dense = True
+
+    # x, y, z, rgb
+    msg.fields = [
+        PointField("x",   0, PointField.FLOAT32, 1),
+        PointField("y",   4, PointField.FLOAT32, 1),
+        PointField("z",   8, PointField.FLOAT32, 1),
+        PointField("rgb", 12, PointField.FLOAT32, 1),
+    ]
+
+    msg.point_step = 16
+    msg.row_step = msg.point_step * N
+
+    # -------------------------
+    # 紫色 = (R=128, G=0, B=255)
+    # -------------------------
+    r, g, b = 128, 0, 255
+    rgb_uint32 = (r << 16) | (g << 8) | b
+    rgb_float = struct.unpack('f', struct.pack('I', rgb_uint32))[0]
+
+    # データ作成
+    data = []
+    for p in points:
+        data.append(struct.pack('fff f', p[0], p[1], p[2], rgb_float))
+
+    msg.data = b"".join(data)
 
     return msg

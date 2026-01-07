@@ -53,7 +53,7 @@ class MoveItClient:
 
     def execute(self, plan):
         success = self.move_group.execute(plan, wait=True)
-        self.move_group.stop()
+        self.move_group.stop()###ここで完全停止してる
         self.move_group.clear_pose_targets()
         return success
 

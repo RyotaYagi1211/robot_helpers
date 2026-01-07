@@ -26,8 +26,8 @@ class Visualizer:
         self.scene_cloud_pub = rospy.Publisher(topic, PointCloud2, queue_size=1)
 
     def create_map_cloud_publisher(self, topic="map_cloud"):
-        self.map_cloud_pub = rospy.Publisher(topic, PointCloud2, queue_size=1)
-
+        self.map_cloud_pub = rospy.Publisher(topic, PointCloud2, queue_size=1, latch=True)
+        # self.map_cloud_pub = rospy.Publisher(topic, PointCloud2, queue_size=1)    
     def create_quality_publisher(self, topic="quality"):
         self.quality_pub = rospy.Publisher(topic, PointCloud2, queue_size=1)
 
@@ -63,6 +63,7 @@ class Visualizer:
         lines = box_lines(np.full(3, 0), np.full(3, size))
         msg = create_line_list_marker(frame, pose, scale, color, lines, ns="roi")
         self.draw([msg])
+        print("ROI drawn with size:", size)
 
     def scene_cloud(self, frame, points):
         msg = to_cloud_msg(frame, points)

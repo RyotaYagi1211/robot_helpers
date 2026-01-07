@@ -3,8 +3,8 @@ import open3d as o3d
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D  
 def map_cloud_to_grid(voxel_size, points, values):
-    # grid = np.zeros((40, 40, 40), dtype=np.float32)
-    grid = np.zeros((60, 60, 60), dtype=np.float32)##学習時に変更
+    grid = np.zeros((40, 40, 40), dtype=np.float32)
+    # grid = np.zeros((60, 60, 60), dtype=np.float32)##学習時に変更
 
     indices = np.round(points / voxel_size).astype(int)
     grid[tuple(indices.T)] = values.squeeze()
@@ -28,7 +28,7 @@ def grid_to_map_cloud(voxel_size, grid, threshold=0.0):
 
 
 
-def map_clouds_to_grid_instance(voxel_size, points, instance_ids, values=None, grid_shape=(60, 60, 60)):
+def map_clouds_to_grid_instance(voxel_size, points, instance_ids, values=None, grid_shape=(40, 40, 40)):
     unique_ids = np.unique(instance_ids)
     grid = np.zeros((grid_shape[0], grid_shape[1], grid_shape[2], len(unique_ids)), dtype=np.float32)
     indices = np.round(points / voxel_size).astype(int)
@@ -48,7 +48,7 @@ def map_clouds_to_grid_instance(voxel_size, points, instance_ids, values=None, g
     cmap = rng.rand(len(unique_ids), 3)
 
     for i in range(len(unique_ids)):
-        grid_i = grid[i]
+        grid_i = grid[...,i]
         mask = grid_i > 0.0
         if not np.any(mask):
             continue

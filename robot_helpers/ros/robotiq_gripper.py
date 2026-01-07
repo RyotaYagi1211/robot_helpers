@@ -14,7 +14,7 @@ class GripperController(object):
         self.command.rACT = 1#起動
         self.command.rGTO = 1
         self.command.rSP  = 255
-        self.command.rFR  = 100#力 150
+        self.command.rFR  = 50#力 150
         self.pub.publish(self.command)
 
     def gripper_control(self,width):#入力が幅でよくなってる
