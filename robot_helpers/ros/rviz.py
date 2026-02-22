@@ -1,3 +1,110 @@
+# import rospy
+# import numpy as np
+# from geometry_msgs.msg import Quaternion
+# from visualization_msgs.msg import *
+# from sensor_msgs.msg import PointCloud2
+# from visualization_msgs.msg import MarkerArray
+
+# from robot_helpers.spatial import Rotation, Transform
+# from robot_helpers.conversions import grid_to_map_cloud
+# from robot_helpers.ros.conversions import to_cloud_msg, to_point_msg, to_pose_msg, to_vector3_msg, to_color_msg
+
+# cm = lambda s: tuple([float(1 - s), float(s), float(0)])
+
+# class Visualizer:
+#     def __init__(self, base_frame="task"):
+#         self.base_frame = base_frame
+#         self.create_marker_publisher()
+#         self.create_scene_cloud_publisher()
+#         self.create_map_cloud_publisher()
+#         self.create_quality_publisher()
+
+#     def create_marker_publisher(self, topic="visualization_marker_array"):
+#         self.marker_pub = rospy.Publisher(topic, MarkerArray, queue_size=1)
+
+#     def create_scene_cloud_publisher(self, topic="scene_cloud"):
+#         self.scene_cloud_pub = rospy.Publisher(topic, PointCloud2, queue_size=1)
+
+#     def create_map_cloud_publisher(self, topic="map_cloud"):
+#         self.map_cloud_pub = rospy.Publisher(topic, PointCloud2, queue_size=1, latch=True)
+#         # self.map_cloud_pub = rospy.Publisher(topic, PointCloud2, queue_size=1)    
+#     def create_quality_publisher(self, topic="quality"):
+#         self.quality_pub = rospy.Publisher(topic, PointCloud2, queue_size=1)
+
+#     def clear(self):
+#         self.clear_markers()
+#         self.clear_clouds()
+#         self.clear_quality()
+
+#     def clear_markers(self):
+#         self.draw([Marker(action=Marker.DELETEALL)])
+
+#     def clear_clouds(self):
+#         msg = to_cloud_msg(self.base_frame, np.array([]))
+#         self.scene_cloud_pub.publish(msg)
+#         self.map_cloud_pub.publish(msg)
+
+#     def clear_quality(self):
+#         msg = to_cloud_msg(self.base_frame, np.array([]))
+#         self.quality_pub.publish(msg)
+
+#     def clear_grasp(self):
+#         markers = [Marker(action=Marker.DELETE, ns="grasp", id=i) for i in range(4)]
+#         self.draw(markers)
+
+#     def clear_ig_views(self):
+#         markers = [Marker(action=Marker.DELETE, ns="ig_view", id=i) for i in range(24)]
+#         self.draw(markers)
+
+#     def roi(self, frame, size):
+#         pose = Transform.identity()
+#         scale = [size * 0.005, 0.0, 0.0]
+#         color = [0.5, 0.5, 0.5]
+#         lines = box_lines(np.full(3, 0), np.full(3, size))
+#         msg = create_line_list_marker(frame, pose, scale, color, lines, ns="roi")
+#         self.draw([msg])
+#         print("ROI drawn with size:", size)
+
+
+#     def scene_cloud(self, frame, points):
+#         msg = to_cloud_msg(frame, points)
+#         self.scene_cloud_pub.publish(msg)
+
+#     def map_cloud(self, frame, points, distances):
+#         msg = to_cloud_msg(frame, points, distances=distances)
+#         self.map_cloud_pub.publish(msg)
+
+#     def quality(self, frame, voxel_size, grid, threshold=0.9):
+#         origin = np.array([0.0, 0.0, 0.0])
+#         points, values = grid_to_map_cloud(voxel_size, grid, threshold,origin=origin)
+#         msg = to_cloud_msg(frame, points, values=values)
+#         self.quality_pub.publish(msg)
+
+
+#     def grasp(self, frame, grasp, quality, vmin=0.5, vmax=1.0):
+#         color = cm((quality - vmin) / (vmax - vmin))
+#         self.draw(create_grasp_markers(frame, grasp, color, "grasp"))
+
+#     def grasps(self, frame, grasps, qualities, vmin=0.5, vmax=1.0):
+#         markers = []
+#         for i, (grasp, quality) in enumerate(zip(grasps, qualities)):
+#             color = cm((quality - vmin) / (vmax - vmin))
+#             markers.append(create_grasp_marker(frame, grasp, color, "grasps", i))
+#         self.draw(markers)
+    
+
+
+#     def ig_view(self, frame, intrinsic, view, value, vmin=0.0, vmax=0.8):
+#         scale = [0.002, 0.0, 0.0]
+#         near, far = 0.0, 0.02
+#         color = cm((value - vmin) / (vmax - vmin))
+#         marker = create_view_marker(
+#             frame, view, scale, color, intrinsic, near, far, ns="ig_view", id=0)
+#         self.draw([marker])
+
+#     def draw(self, markers):
+#         self.marker_pub.publish(MarkerArray(markers=markers))
+
 import rospy
 import numpy as np
 from geometry_msgs.msg import Quaternion
@@ -7,18 +114,54 @@ from visualization_msgs.msg import MarkerArray
 
 from robot_helpers.spatial import Rotation, Transform
 from robot_helpers.conversions import grid_to_map_cloud
-from robot_helpers.ros.conversions import to_cloud_msg, to_point_msg, to_pose_msg, to_vector3_msg, to_color_msg
+from robot_helpers.ros.conversions import (
+    to_cloud_msg, to_point_msg, to_pose_msg, to_vector3_msg, to_color_msg
+)
 
 cm = lambda s: tuple([float(1 - s), float(s), float(0)])
 
+
 class Visualizer:
-    def __init__(self, base_frame="task"):
+    """
+    Backward compatible Visualizer with optional origin offset support.
+
+    - If origin is not provided anywhere, behavior is identical to original code.
+    - You can set a default origin in the constructor: Visualizer(origin=...)
+    - Or override per-call: vis.roi(..., origin=...), vis.quality(..., origin=...), etc.
+    """
+
+    def __init__(self, base_frame="task", origin=None):
         self.base_frame = base_frame
+        self.origin = None if origin is None else np.asarray(origin, dtype=np.float32)
+
         self.create_marker_publisher()
         self.create_scene_cloud_publisher()
         self.create_map_cloud_publisher()
         self.create_quality_publisher()
 
+    # -------------------------
+    # internal helpers
+    # -------------------------
+    def _resolve_origin(self, origin):
+        """Per-call origin overrides self.origin. None means no offset (old behavior)."""
+        if origin is not None:
+            return np.asarray(origin, dtype=np.float32)
+        if self.origin is not None:
+            return self.origin
+        return None  # keep old behavior
+
+    def _apply_origin_to_points(self, points, origin):
+        """Add origin to Nx3 points if origin is not None."""
+        pts = np.asarray(points)
+        if pts.size == 0:
+            return pts
+        if origin is None:
+            return pts
+        return pts + origin
+
+    # -------------------------
+    # publishers
+    # -------------------------
     def create_marker_publisher(self, topic="visualization_marker_array"):
         self.marker_pub = rospy.Publisher(topic, MarkerArray, queue_size=1)
 
@@ -27,10 +170,13 @@ class Visualizer:
 
     def create_map_cloud_publisher(self, topic="map_cloud"):
         self.map_cloud_pub = rospy.Publisher(topic, PointCloud2, queue_size=1, latch=True)
-        # self.map_cloud_pub = rospy.Publisher(topic, PointCloud2, queue_size=1)    
+
     def create_quality_publisher(self, topic="quality"):
         self.quality_pub = rospy.Publisher(topic, PointCloud2, queue_size=1)
 
+    # -------------------------
+    # clear
+    # -------------------------
     def clear(self):
         self.clear_markers()
         self.clear_clouds()
@@ -56,43 +202,68 @@ class Visualizer:
         markers = [Marker(action=Marker.DELETE, ns="ig_view", id=i) for i in range(24)]
         self.draw(markers)
 
-    def roi(self, frame, size):
+    # -------------------------
+    # draw helpers
+    # -------------------------
+    def roi(self, frame, size, origin=None):
+        """
+        Draw ROI box.
+        Old behavior: origin not used (box from [0,0,0] to [size,size,size]).
+        New behavior: if origin is given (or self.origin set), box is shifted.
+        """
+        o = self._resolve_origin(origin)
         pose = Transform.identity()
         scale = [size * 0.005, 0.0, 0.0]
         color = [0.5, 0.5, 0.5]
-        lines = box_lines(np.full(3, 0), np.full(3, size))
+
+        if o is None:
+            lower = np.full(3, 0, dtype=np.float32)
+            upper = np.full(3, size, dtype=np.float32)
+        else:
+            lower = o.astype(np.float32)
+            upper = (o + np.full(3, size, dtype=np.float32)).astype(np.float32)
+
+        lines = box_lines(lower, upper)
         msg = create_line_list_marker(frame, pose, scale, color, lines, ns="roi")
         self.draw([msg])
-        print("ROI drawn with size:", size)
 
-
-    # def roi(self, frame, size,origin=None):
-    #     pose = Transform.identity()
-    #     scale = [size * 0.005, 0.0, 0.0]
-    #     color = [0.5, 0.5, 0.5]
-    #     lines = box_lines(np.full(3, 0), np.full(3, size))
-    #     msg = create_line_list_marker(frame, pose, scale, color, lines, ns="roi",origin=origin)
-    #     self.draw([msg])
-    #     print("ROI drawn with size:", size)
-
-    def scene_cloud(self, frame, points):
-        msg = to_cloud_msg(frame, points)
+    def scene_cloud(self, frame, points, origin=None):
+        """
+        Publish scene cloud.
+        Old behavior: publish as-is.
+        New behavior: if origin given (or self.origin), shift points.
+        """
+        o = self._resolve_origin(origin)
+        pts = self._apply_origin_to_points(points, o)
+        msg = to_cloud_msg(frame, pts)
         self.scene_cloud_pub.publish(msg)
 
-    def map_cloud(self, frame, points, distances):
-        msg = to_cloud_msg(frame, points, distances=distances)
+    def map_cloud(self, frame, points, distances=None, origin=None):
+        """
+        Publish map cloud.
+        Old behavior: publish as-is.
+        New behavior: if origin given (or self.origin), shift points.
+        """
+        o = self._resolve_origin(origin)
+        pts = self._apply_origin_to_points(points, o)
+        if distances is None:
+            msg = to_cloud_msg(frame, pts)
+        else:
+            msg = to_cloud_msg(frame, pts, distances=distances)
         self.map_cloud_pub.publish(msg)
 
-    def quality(self, frame, voxel_size, grid, threshold=0.9):
-        origin = np.array([0.0, 0.0, 0.0])
-        points, values = grid_to_map_cloud(voxel_size, grid, threshold,origin=origin)
+    def quality(self, frame, voxel_size, grid, threshold=0.9, origin=None):
+        """
+        Publish quality grid as point cloud.
+        Old behavior: origin=[0,0,0] fixed.
+        New behavior: if origin given (or self.origin), pass it to grid_to_map_cloud.
+        """
+        o = self._resolve_origin(origin)
+        if o is None:
+            o = np.array([0.0, 0.0, 0.0], dtype=np.float32)  # keep original default
+        points, values = grid_to_map_cloud(voxel_size, grid, threshold, origin=o)
         msg = to_cloud_msg(frame, points, values=values)
         self.quality_pub.publish(msg)
-
-    # def quality(self, frame, voxel_size, grid, threshold=0.9,origin=None):
-    #     points, values = grid_to_map_cloud(voxel_size, grid, threshold,origin=origin)
-    #     msg = to_cloud_msg(frame, points, values=values)
-    #     self.quality_pub.publish(msg)
 
     def grasp(self, frame, grasp, quality, vmin=0.5, vmax=1.0):
         color = cm((quality - vmin) / (vmax - vmin))
@@ -104,28 +275,21 @@ class Visualizer:
             color = cm((quality - vmin) / (vmax - vmin))
             markers.append(create_grasp_marker(frame, grasp, color, "grasps", i))
         self.draw(markers)
-    
-    # def grasp(self, frame, grasp, quality, vmin=0.5, vmax=1.0,origin=None):
-    #     color = cm((quality - vmin) / (vmax - vmin))
-    #     self.draw(create_grasp_markers(frame, grasp, color, "grasp",origin=origin))
-
-    # def grasps(self, frame, grasps, qualities, vmin=0.5, vmax=1.0,origin=None):
-    #     markers = []
-    #     for i, (grasp, quality) in enumerate(zip(grasps, qualities)):
-    #         color = cm((quality - vmin) / (vmax - vmin))
-    #         markers.append(create_grasp_marker(frame, grasp, color, "grasps", i,origin=origin))
-    #     self.draw(markers)
 
     def ig_view(self, frame, intrinsic, view, value, vmin=0.0, vmax=0.8):
         scale = [0.002, 0.0, 0.0]
         near, far = 0.0, 0.02
         color = cm((value - vmin) / (vmax - vmin))
         marker = create_view_marker(
-            frame, view, scale, color, intrinsic, near, far, ns="ig_view", id=0)
+            frame, view, scale, color, intrinsic, near, far, ns="ig_view", id=0
+        )
         self.draw([marker])
 
     def draw(self, markers):
         self.marker_pub.publish(MarkerArray(markers=markers))
+
+
+
 
 def box_lines(lower, upper):
     x_l, y_l, z_l = lower
