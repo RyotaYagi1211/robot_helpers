@@ -310,29 +310,42 @@ def box_lines(lower, upper):
     ]
 
 
-def create_grasp_markers(frame, grasp, color, ns, id=0, depth=0.046, radius=0.005):
-    # Nicer looking grasp marker drawn with 4 Marker.CYLINDER
+def create_grasp_markers(frame, grasp, color, ns, id=0, depth=0.046, radius=0.005, origin=None):
+    # origin があれば pose を平行移動（grasp本体は破壊しない）
+    pose = grasp.pose
+    if origin is not None:
+        pose = Transform(pose.rotation, pose.translation + np.asarray(origin, dtype=np.float32))
+
     w, d = grasp.width, depth
-    pose = grasp.pose * Transform.t_[0.0, -w / 2, d / 2]
+
+    p = pose * Transform.t_[0.0, -w / 2, d / 2]
     scale = [radius, radius, d]
-    left = create_marker(Marker.CYLINDER, frame, pose, scale, color, ns, id)
-    pose = grasp.pose * Transform.t_[0.0, w / 2, d / 2]
+    left = create_marker(Marker.CYLINDER, frame, p, scale, color, ns, id)
+
+    p = pose * Transform.t_[0.0,  w / 2, d / 2]
     scale = [radius, radius, d]
-    right = create_marker(Marker.CYLINDER, frame, pose, scale, color, ns, id + 1)
-    pose = grasp.pose * Transform.t_[0.0, 0.0, -d / 4]
+    right = create_marker(Marker.CYLINDER, frame, p, scale, color, ns, id + 1)
+
+    p = pose * Transform.t_[0.0, 0.0, -d / 4]
     scale = [radius, radius, d / 2]
-    wrist = create_marker(Marker.CYLINDER, frame, pose, scale, color, ns, id + 2)
-    pose = grasp.pose * Transform.from_rotation(Rotation.from_rotvec([np.pi / 2, 0, 0]))
+    wrist = create_marker(Marker.CYLINDER, frame, p, scale, color, ns, id + 2)
+
+    p = pose * Transform.from_rotation(Rotation.from_rotvec([np.pi / 2, 0, 0]))
     scale = [radius, radius, w]
-    palm = create_marker(Marker.CYLINDER, frame, pose, scale, color, ns, id + 3)
+    palm = create_marker(Marker.CYLINDER, frame, p, scale, color, ns, id + 3)
+
     return [left, right, wrist, palm]
 
 
-def create_grasp_marker(frame, grasp, color, ns, id=0, depth=0.05, radius=0.005):
-    # Faster grasp marker using Marker.LINE_LIST
-    pose, w, d, scale = grasp.pose, grasp.width, depth, [radius, 0.0, 0.0]
+def create_grasp_marker(frame, grasp, color, ns, id=0, depth=0.05, radius=0.005, origin=None):
+    pose = grasp.pose
+    if origin is not None:
+        pose = Transform(pose.rotation, pose.translation + np.asarray(origin, dtype=np.float32))
+
+    w, d, scale = grasp.width, depth, [radius, 0.0, 0.0]
     points = [[0, -w / 2, d], [0, -w / 2, 0], [0, w / 2, 0], [0, w / 2, d]]
     return create_line_strip_marker(frame, pose, scale, color, points, ns, id)
+
 
 
 def create_view_marker(frame, pose, scale, color, intrinsic, near, far, ns="", id=0):
