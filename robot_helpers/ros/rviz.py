@@ -265,16 +265,19 @@ class Visualizer:
         msg = to_cloud_msg(frame, points, values=values)
         self.quality_pub.publish(msg)
 
-    def grasp(self, frame, grasp, quality, vmin=0.5, vmax=1.0):
+    def grasp(self, frame, grasp, quality, vmin=0.5, vmax=1.0, origin=None):
+        o = self._resolve_origin(origin)
         color = cm((quality - vmin) / (vmax - vmin))
-        self.draw(create_grasp_markers(frame, grasp, color, "grasp"))
+        self.draw(create_grasp_markers(frame, grasp, color, "grasp", origin=o))
 
-    def grasps(self, frame, grasps, qualities, vmin=0.5, vmax=1.0):
+    def grasps(self, frame, grasps, qualities, vmin=0.5, vmax=1.0, origin=None):
+        o = self._resolve_origin(origin)
         markers = []
         for i, (grasp, quality) in enumerate(zip(grasps, qualities)):
             color = cm((quality - vmin) / (vmax - vmin))
-            markers.append(create_grasp_marker(frame, grasp, color, "grasps", i))
+            markers.append(create_grasp_marker(frame, grasp, color, "grasps", i, origin=o))
         self.draw(markers)
+
 
     def ig_view(self, frame, intrinsic, view, value, vmin=0.0, vmax=0.8):
         scale = [0.002, 0.0, 0.0]
