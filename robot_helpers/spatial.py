@@ -26,7 +26,7 @@ class Transform:
         return cls(rotation, translation)
 
     @classmethod
-    def from_list(cls, l):
+    def from_list(cls, l):#行列に変換,[quat,x,y,z]
         return cls(Rotation.from_quat(l[:4]), l[4:])
     
     @classmethod

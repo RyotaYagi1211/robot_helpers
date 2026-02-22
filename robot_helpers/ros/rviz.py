@@ -65,6 +65,16 @@ class Visualizer:
         self.draw([msg])
         print("ROI drawn with size:", size)
 
+
+    # def roi(self, frame, size,origin=None):
+    #     pose = Transform.identity()
+    #     scale = [size * 0.005, 0.0, 0.0]
+    #     color = [0.5, 0.5, 0.5]
+    #     lines = box_lines(np.full(3, 0), np.full(3, size))
+    #     msg = create_line_list_marker(frame, pose, scale, color, lines, ns="roi",origin=origin)
+    #     self.draw([msg])
+    #     print("ROI drawn with size:", size)
+
     def scene_cloud(self, frame, points):
         msg = to_cloud_msg(frame, points)
         self.scene_cloud_pub.publish(msg)
@@ -74,9 +84,15 @@ class Visualizer:
         self.map_cloud_pub.publish(msg)
 
     def quality(self, frame, voxel_size, grid, threshold=0.9):
-        points, values = grid_to_map_cloud(voxel_size, grid, threshold)
+        origin = np.array([0.0, 0.0, 0.0])
+        points, values = grid_to_map_cloud(voxel_size, grid, threshold,origin=origin)
         msg = to_cloud_msg(frame, points, values=values)
         self.quality_pub.publish(msg)
+
+    # def quality(self, frame, voxel_size, grid, threshold=0.9,origin=None):
+    #     points, values = grid_to_map_cloud(voxel_size, grid, threshold,origin=origin)
+    #     msg = to_cloud_msg(frame, points, values=values)
+    #     self.quality_pub.publish(msg)
 
     def grasp(self, frame, grasp, quality, vmin=0.5, vmax=1.0):
         color = cm((quality - vmin) / (vmax - vmin))
@@ -88,6 +104,17 @@ class Visualizer:
             color = cm((quality - vmin) / (vmax - vmin))
             markers.append(create_grasp_marker(frame, grasp, color, "grasps", i))
         self.draw(markers)
+    
+    # def grasp(self, frame, grasp, quality, vmin=0.5, vmax=1.0,origin=None):
+    #     color = cm((quality - vmin) / (vmax - vmin))
+    #     self.draw(create_grasp_markers(frame, grasp, color, "grasp",origin=origin))
+
+    # def grasps(self, frame, grasps, qualities, vmin=0.5, vmax=1.0,origin=None):
+    #     markers = []
+    #     for i, (grasp, quality) in enumerate(zip(grasps, qualities)):
+    #         color = cm((quality - vmin) / (vmax - vmin))
+    #         markers.append(create_grasp_marker(frame, grasp, color, "grasps", i,origin=origin))
+    #     self.draw(markers)
 
     def ig_view(self, frame, intrinsic, view, value, vmin=0.0, vmax=0.8):
         scale = [0.002, 0.0, 0.0]

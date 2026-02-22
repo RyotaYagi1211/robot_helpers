@@ -22,7 +22,7 @@ class MoveItClient:
         self.move_group.set_max_velocity_scaling_factor(velocity_scaling)
         self.move_group.set_max_acceleration_scaling_factor(acceleration_scaling)
 
-        if isinstance(target, Transform):
+        if isinstance(target, Transform):##位置姿勢、関節角でも受け入れてくれる、if文が存在してる
             self.move_group.set_pose_target(to_pose_msg(target))
         elif isinstance(target, (list, np.ndarray)):
             self.move_group.set_joint_value_target(target)
@@ -56,6 +56,12 @@ class MoveItClient:
         self.move_group.stop()###ここで完全停止してる
         self.move_group.clear_pose_targets()
         return success
+    
+    #  def execute(self, plan):
+    #     success = self.move_group.execute(plan, wait=True)
+    #     self.move_group.stop()###ここで完全停止してる
+    #     self.move_group.clear_pose_targets()
+    #     return success
 
 
 def create_collision_object_from_mesh(name, frame, pose, mesh):
